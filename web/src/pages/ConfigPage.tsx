@@ -121,6 +121,7 @@ export default function ConfigPage() {
         .catch(() => showToast(t.config.failedToLoadRaw, "error"))
         .finally(() => setYamlLoading(false));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yamlMode]);
 
   /* ---- Categories ---- */

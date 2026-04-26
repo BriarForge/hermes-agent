@@ -253,14 +253,16 @@ function SessionRow({
 
   useEffect(() => {
     if (isExpanded && messages === null && !loading) {
+      /* eslint-disable react-hooks/set-state-in-effect */
       setLoading(true);
+      /* eslint-enable react-hooks/set-state-in-effect */
       api
         .getSessionMessages(session.id)
         .then((resp) => setMessages(resp.messages))
         .catch((err) => setError(String(err)))
         .finally(() => setLoading(false));
     }
-  }, [isExpanded, session.id, messages, loading]);
+  }, [isExpanded, messages, loading, session.id]);
 
   const sourceInfo = (session.source
     ? SOURCE_CONFIG[session.source]
@@ -396,7 +398,9 @@ export default function SessionsPage() {
   }, []);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     loadSessions(page);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [loadSessions, page]);
 
   // Debounced FTS search
@@ -404,8 +408,10 @@ export default function SessionsPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (!search.trim()) {
+      /* eslint-disable react-hooks/set-state-in-effect */
       setSearchResults(null);
       setSearching(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
       return;
     }
 

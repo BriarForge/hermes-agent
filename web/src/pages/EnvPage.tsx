@@ -582,6 +582,7 @@ export default function EnvPage() {
 /* ------------------------------------------------------------------ */
 
 function CollapsibleUnset({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   category: _category,
   unsetEntries,
   edits,

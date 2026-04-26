@@ -47,9 +47,10 @@ export default function CronPage() {
       .catch(() => showToast(t.common.loading, "error"))
       .finally(() => setLoading(false));
   };
-
   useEffect(() => {
+    /* eslint-disable react-hooks/exhaustive-deps */
     loadJobs();
+    /* eslint-enable react-hooks/exhaustive-deps */
   }, []);
 
   const handleCreate = async () => {

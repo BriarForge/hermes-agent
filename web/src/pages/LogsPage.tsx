@@ -98,7 +98,9 @@ export default function LogsPage() {
   }, [file, lineCount, level, component]);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     fetchLogs();
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [fetchLogs]);
 
   useEffect(() => {

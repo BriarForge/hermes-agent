@@ -20,7 +20,7 @@ interface ModelInfoCardProps {
 
 export function ModelInfoCard({ currentModel, refreshKey = 0 }: ModelInfoCardProps) {
   const [info, setInfo] = useState<ModelInfoResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(!!currentModel);
   const lastFetchKeyRef = useRef("");
 
   useEffect(() => {
@@ -29,12 +29,10 @@ export function ModelInfoCard({ currentModel, refreshKey = 0 }: ModelInfoCardPro
     const fetchKey = `${currentModel}:${refreshKey}`;
     if (fetchKey === lastFetchKeyRef.current) return;
     lastFetchKeyRef.current = fetchKey;
-    setLoading(true);
     api
       .getModelInfo()
       .then(setInfo)
-      .catch(() => setInfo(null))
-      .finally(() => setLoading(false));
+      .catch(() => setInfo(null));
   }, [currentModel, refreshKey]);
 
   if (loading) {

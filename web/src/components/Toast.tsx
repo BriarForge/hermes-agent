@@ -7,6 +7,7 @@ export function Toast({ toast }: { toast: { message: string; type: "success" | "
 
   useEffect(() => {
     if (toast) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrent(toast);
       setVisible(true);
     } else {

@@ -154,7 +154,8 @@ export function Select({
   );
 }
 
-export function SelectOption(_props: SelectOptionProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- this component is used for JSX children pattern
+export function SelectOption(_selectOptionProps: SelectOptionProps): null {
   return null;
 }
 

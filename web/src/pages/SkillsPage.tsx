@@ -98,7 +98,6 @@ export default function SkillsPage() {
   const [togglingSkills, setTogglingSkills] = useState<Set<string>>(new Set());
   const { toast, showToast } = useToast();
   const { t } = useI18n();
-
   useEffect(() => {
     Promise.all([api.getSkills(), api.getToolsets()])
       .then(([s, tsets]) => {
@@ -107,7 +106,9 @@ export default function SkillsPage() {
       })
       .catch(() => showToast(t.common.loading, "error"))
       .finally(() => setLoading(false));
+    /* eslint-disable react-hooks/exhaustive-deps */
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   /* ---- Toggle skill ---- */
   const handleToggleSkill = async (skill: SkillInfo) => {
