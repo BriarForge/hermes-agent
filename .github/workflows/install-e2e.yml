@@ -13,8 +13,12 @@ name: Install & Update E2E
 # ships, and would pin an "oldest" that nobody still runs.
 #
 # Triggers:
-#   * every 12 hours, so upstream drift (a new uv, a Node bump, a PyPI change)
-#     surfaces on a schedule rather than in someone's review cycle;
+#   * every 12 hours on the upstream repo, so drift (a new uv, a Node bump,
+#     a PyPI change) surfaces on a schedule rather than in a review cycle.
+#     Forks skip the schedule: they almost never carry vYYYY.M.D tags, so the
+#     picker would fail every tick and email the fork owner. workflow_dispatch
+#     and release-tag pushes still run on forks (and fetch upstream tags if
+#     origin has none);
 #   * when a release tag is created -- the moment the set of versions users can
 #     update FROM changes, and the moment a broken updater would strand them;
 #   * manually, where you can pick the route and how many releases to sample.
@@ -58,6 +62,11 @@ jobs:
   # by both route matrices, so the two routes cover the same set.
   pick-releases:
     name: Pick release tags
+    # Forks almost never carry the upstream vYYYY.M.D release tags.
+    # actions/checkout fetch-tags only sees origin, so a scheduled run on a
+    # fork fails every 12h and emails the owner. Skip the clock on forks;
+    # workflow_dispatch and tag-push still run.
+    if: github.event_name != 'schedule' || !github.event.repository.fork
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -73,8 +82,16 @@ jobs:
           sparse-checkout: scripts/sandbox/pick-release-tags.sh
           sparse-checkout-cone-mode: false
       - id: pick
+        env:
+          # Parent is present on fork events; fall back so a rename or a
+          # missing parent object still reaches the public release tags.
+          UPSTREAM_URL: ${{ github.event.repository.parent.clone_url || 'https://github.com/NousResearch/hermes-agent.git' }}
         run: |
           set -euo pipefail
+          if ! git tag --list 'v*' | grep -qE '^v[0-9]{4}\.[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+            echo "No local release tags; fetching from ${UPSTREAM_URL}"
+            git fetch --tags --force "$UPSTREAM_URL" '+refs/tags/v*:refs/tags/v*'
+          fi
           tags="$(scripts/sandbox/pick-release-tags.sh --count '${{ inputs.tag-count || 5 }}')"
           echo "Testing updates from: $tags"
           echo "tags=$tags" >> "$GITHUB_OUTPUT"

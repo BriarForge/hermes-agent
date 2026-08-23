@@ -21,8 +21,9 @@
 #
 # Reads tags from the local checkout, so it needs one fetched with tags
 # (actions/checkout with fetch-depth: 0, or `fetch-tags: true`). A shallow
-# checkout has no tags and this exits non-zero rather than silently emitting an
-# empty matrix.
+# checkout has no tags. A fork usually has none either: fetch-tags only sees
+# origin, and release tags live on the upstream remote. Either case exits
+# non-zero rather than silently emitting an empty matrix.
 #
 # Only vYYYY.M.D[.N] release tags are considered; the repo also carries
 # backup/* and one-off tags that are not releases.
@@ -75,8 +76,11 @@ mapfile -t tags < <(
 total="${#tags[@]}"
 if [ "$total" -eq 0 ]; then
   echo "error: no release tags found in $REPO" >&2
-  echo '       A shallow clone has no tags: fetch with tags (actions/checkout' >&2
-  echo '       with fetch-depth: 0, or fetch-tags: true).' >&2
+  echo '       Need vYYYY.M.D[.N] tags. A shallow clone has none: fetch with' >&2
+  echo '       tags (actions/checkout fetch-depth: 0, or fetch-tags: true).' >&2
+  echo '       A fork usually has none either: fetch-tags only sees origin.' >&2
+  echo '       Fetch upstream first, e.g.' >&2
+  echo '         git fetch --tags https://github.com/NousResearch/hermes-agent.git' >&2
   exit 1
 fi
 
