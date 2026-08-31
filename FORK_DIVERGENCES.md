@@ -2,75 +2,54 @@
 
 BriarForge/hermes-agent vs NousResearch/hermes-agent.
 
-This file is the changelog for **authored** fork drift. Lag is not drift.
+This file is the source of truth for fork-only intent. It is **not** a replay recipe — there are no SHAs to cherry-pick across a tag sync. Each entry states the behavior the tree must preserve, in plain English, so the next sync can implement it on whatever upstream files exist at the time.
 
 ## Snapshot
 
 | Field | Value |
 |---|---|
-| Generated (UTC) | 2026-08-23T03:33:21Z |
-| Fork HEAD | `55f51e5fe0` `ci(install-e2e): skip schedule on forks, fetch upstream tags when missing` |
-| Upstream `main` | `fd760435c6` `test(bedrock): make the botocore stub windows airtight` |
-| Merge-base | `e624e9fde5` `chore: map contributor email for #88864 salvage` |
-| Ahead (`upstream/main..HEAD`) | **1** authored commit |
-| Behind (`HEAD..upstream/main`) | **996** (lag, rebasable; not a fork change) |
+| Generated (UTC) | 2026-08-31T23:11Z |
+| Upstream release tag | `v2026.8.31` (`29112bef09`) `chore: release v0.21.0 (2026.8.31)` |
+| Fork HEAD | `f189d50394` `docs: add FORK_DIVERGENCES.md — authored fork drift vs upstream` |
+| Tag is an ancestor of HEAD | yes (`git merge-base --is-ancestor v2026.8.31 HEAD` = 0) |
+| `origin/main...HEAD` | `0 0` |
+| Active English divergences | **1** (D1) |
+| Re-implemented this sync | none (D1 already satisfied by the carried replay; no second re-implementation made on the v2026.8.31 tree this turn) |
 
-Counts are a snapshot. They change on the next `git fetch`. Regenerate this file after any fork commit or upstream sync.
+Counts change on every fetch and every sync. Regenerate this table when you refresh the ledger.
 
-## How to regenerate
+## Authored divergences (plain-English intent)
 
-```bash
-cd /Users/mike/Projects/BriarForge/hermes-agent
-git-declan fetch upstream main
-echo "fork=$(git rev-parse --short HEAD)"
-echo "upstream=$(git rev-parse --short upstream/main)"
-echo "merge_base=$(git rev-parse --short $(git merge-base HEAD upstream/main))"
-echo "ahead=$(git rev-list --count upstream/main..HEAD)"
-echo "behind=$(git rev-list --count HEAD..upstream/main)"
-git log --pretty='format:%h|%aI|%an|%s' upstream/main..HEAD
-git diff --name-status upstream/main...HEAD
-```
+### D1 — Install & Update E2E on forks
 
-Then edit this file: refresh the snapshot table, add a dated entry for each new SHA in `upstream/main..HEAD`, drop entries that have been merged into upstream (no longer in that range).
+A fork of this repo does not carry `vYYYY.M.D` release tags. `actions/checkout fetch-tags` only sees `origin`. Running the `Install & Update E2E` schedule on a fork fails the tag-picker every tick and emails the fork owner on every run.
 
-Source of truth is git, not this file. If they disagree, regenerate.
+**What must be true on the tree (after every release-tag sync):**
 
-## Divergence vs lag
+1. The scheduled `Install & Update E2E` run is suppressed on a fork (`github.event_name == 'schedule'` AND `github.event.repository.fork` must skip). `workflow_dispatch` and `push tags` still run.
+2. The `pick-releases` job, before invoking `pick-release-tags.sh`, checks whether local `v*` tags exist. If none, it fetches tags from `github.event.repository.parent.clone_url`, falling back to `https://github.com/NousResearch/hermes-agent.git`.
+3. The picker error message names the fork case in addition to the shallow-clone case, so future fork owners know why tag selection failed.
+4. Items 1–3 are applied to whichever file currently owns the schedule in upstream — `install-e2e.yml` today; `install-e2e-run.yml` or a renamed equivalent if upstream moves the trigger. The intent travels with the schedule, not with the filename.
 
-- **Divergence (track here):** commits on the fork that are not on `upstream/main`. Range: `upstream/main..HEAD`.
-- **Lag (do not invent entries for):** commits on `upstream/main` that the fork has not merged yet. Range: `HEAD..upstream/main`. Rebase or merge to shrink it. The current 996 is lag only.
+**How to run the absorption test on a new release tag:** `git show <NEW_TAG>:.github/workflows/install-e2e.yml` (and any renamed successor). If the file already satisfies 1–3, drop D1 from this ledger. Otherwise, edit the upstream-renamed file in place and `git-aoife commit`.
 
-Uncommitted dirty/untracked work is **not** a divergence until it is committed on the fork.
-
-## Authored divergences
-
-### 2026-08-23 — ci(install-e2e): skip schedule on forks, fetch upstream tags when missing
-
-| Field | Value |
-|---|---|
-| SHA | `55f51e5fe0` |
-| Author | Declan Murphy `<278305138+declan-murphy-bf@users.noreply.github.com>` |
-| Date | 2026-08-23T09:11:47+08:00 |
-| Files | `.github/workflows/install-e2e.yml`, `scripts/sandbox/pick-release-tags.sh` |
-| Class | fork-only **and** upstream candidate |
-| Proof | Actions run [32609830207](https://github.com/BriarForge/hermes-agent/actions/runs/32609830207): `Pick release tags` succeeded after `No local release tags; fetching from https://github.com/NousResearch/hermes-agent.git` then `Testing updates from: ["v2026.8.19"]` |
-
-**Why it exists.** This fork has zero `vYYYY.M.D` release tags. `actions/checkout` `fetch-tags: true` only sees origin. The 12h `Install & Update E2E` schedule (`20 7,19 * * *`) failed every tick and emailed the fork owner (17 scheduled failures, 0 successes).
-
-**What it does.** Skip the scheduled job on forks (`if: github.event_name != 'schedule' || !github.event.repository.fork`). Manual / tag-push still run and fetch tags from `github.event.repository.parent.clone_url` (fallback `https://github.com/NousResearch/hermes-agent.git`). Picker error text now names the fork case, not only shallow clones.
-
-**Upstream?** Yes. Same two files exist on NousResearch/hermes-agent. The schedule skip is one `if:` line; the picker message is docs. Cherry-pick `55f51e5fe0` onto a fresh upstream-based branch and open a PR against NousResearch/hermes-agent. Use `git-declan` for the push.
+**Realization on the current tree (snapshot, not a replay source):** D1 is satisfied by `ce24c19a61` `ci(install-e2e): skip schedule on forks, fetch upstream tags when missing` (replay carryover from the v2026.8.18 era; present in this fork's HEAD as a commit on top of `v2026.8.31`). The next sync that moves to a tag where upstream already does 1–3 must drop D1 and adopt upstream's version. The next sync that moves to a tag where upstream does NOT do 1–3 must re-implement D1 on whatever file owns the schedule — **not** cherry-pick `ce24c19a61` across.
 
 ## Local state (not divergences)
 
-Present on this worktree at generation time. Not committed. Do not `git add` them as part of a divergence refresh.
+Present on this worktree at generation time. Not committed. Not a divergence until committed on the fork.
 
-- Dirty: `contributors/emails/agent@agents-Mac-mini.local` (pre-existing; leave it)
-- Untracked: `tinker-atropos/` (leave it)
+- Modified: `contributors/emails/agent@agents-Mac-mini.local` (`momomojo` → `skip-agent`) — pre-existing; leave it.
+- Stash `{0}`: `pre-hermes-update-20260831T212527Z-vite-dirname` (Mike's `import.meta.dirname` vite experiment). Stashed, not popped, not a divergence.
 
-## Playbook
+## Playbook (matches `/Users/mike/Projects/BriarForge/AGENTS.md` § Hermes fork updates)
 
-1. After a fork-only commit: add a dated section under **Authored divergences**, bump the snapshot.
-2. After merging/rebasing `upstream/main`: regenerate counts; delete any SHA that no longer appears in `upstream/main..HEAD` (it landed upstream or was dropped).
-3. Candidate for upstream: cherry-pick onto a branch from `upstream/main`, push via the per-person wrapper, PR to NousResearch/hermes-agent.
-4. Never treat `behind` as a list of fork changes.
+1. `git fetch upstream --tags --prune`.
+2. Pick the highest `vYYYY.M.D` newer than current HEAD. Hard-stop if none.
+3. Create `backup/pre-hermes-update-<stamp>-<oldtag>` from current HEAD. Push best-effort.
+4. `git checkout main && git reset --hard <NEW_TAG>`. No SHA cherry-pick.
+5. For each entry in this ledger, run the absorption test on the **new tag's** files (file names may have changed). Drop entries that upstream already satisfies; re-implement the rest from scratch on the current files; `git-aoife commit` each.
+6. Rewrite this ledger (the one you're reading) so it lists only what still diverges, in English.
+7. `git-aoife push aoife main` (default push). If history was rewritten at step 4, add `--force-with-lease`. Never bare `git push`. Never `declan-murphy-bf`.
+8. Verify: tag is ancestor of HEAD; `origin/main...HEAD` = `0 0`; tree clean or only known throwaway dirt; stash `{0}` intact.
+9. Do **not** run `hermes update` in any path that pulls `upstream/main`. Release-tag sync is a separate ritual.
