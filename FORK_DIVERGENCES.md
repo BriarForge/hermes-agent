@@ -8,18 +8,32 @@ This file is the source of truth for fork-only intent. It is **not** a replay re
 
 | Field | Value |
 |---|---|
-| Generated (UTC) | 2026-10-15T21:39Z |
+| Generated (UTC) | 2026-10-15T21:45Z |
 | Upstream release tag | `v0.22.2` (`7b77e29eed`) `d923a5eb48 Release 0.22.2 from release/0.22.1 with the published v0.22.1 as a parent` |
-| Fork HEAD | `b6a707c4f9` `ci: drop case-colliding agent@agents-Mac-mini.local contributor file` (+ this ledger commit) |
+| Fork HEAD | D1 + D3 + this ledger on `v0.22.2` |
 | Tag is an ancestor of HEAD | yes (`git merge-base --is-ancestor v0.22.2 HEAD` = 0) |
-| `origin/main...HEAD` | rewritten this sync; push with `--force-with-lease` |
-| Active English divergences | **1** (D3) |
-| Dropped this sync (upstream satisfies) | D1, D2 |
-| Re-implemented this sync | D3 on the v0.22.2 tree |
+| Active English divergences | **2** (D1, D3) |
+| Dropped this sync (upstream satisfies) | D2 |
+| Re-implemented this sync | D1 (`install-e2e.yml` + `pick-release-tags.sh`), D3 (`contributors/emails/agent@agents-Mac-mini.local`) |
 
 Counts change on every fetch and every sync. Regenerate this table when you refresh the ledger.
 
 ## Authored divergences (plain-English intent)
+
+### D1 — Install & Update E2E on forks
+
+A fork of this repo does not carry release tags (`vYYYY.M.D` or `v0.Y.Z`). `actions/checkout fetch-tags` only sees `origin`. Running the `Install & Update E2E` picker on a fork fails the tag-picker and emails the fork owner.
+
+**What must be true on the tree (after every release-tag sync):**
+
+1. Any scheduled `Install & Update E2E` run is suppressed on a fork (`github.event_name == 'schedule'` AND `github.event.repository.fork` must skip). `workflow_dispatch` and `workflow_call` still run.
+2. The `pick-releases` job, before invoking `pick-release-tags.sh` / `pick_tags.py`, checks whether local `v*` tags exist. If none, it fetches tags from `github.event.repository.parent.clone_url`, falling back to `https://github.com/NousResearch/hermes-agent.git`.
+3. The picker error message names the fork case in addition to the shallow-clone case, so future fork owners know why tag selection failed.
+4. Items 1–3 are applied to whichever file currently owns the schedule / picker in upstream — `install-e2e.yml` today; `install-e2e-run.yml` or a renamed equivalent if upstream moves the trigger. The intent travels with the picker, not with the filename.
+
+**How to run the absorption test on a new release tag:** `git show <NEW_TAG>:.github/workflows/install-e2e.yml` (and any renamed successor). If the file already satisfies 1–3, drop D1 from this ledger. Removing `on.schedule` is **not** enough: `workflow_dispatch` on a fork still needs items 2–3. Otherwise, edit the upstream-renamed file in place and `git-aoife commit`.
+
+**Realization on the current tree (snapshot, not a replay source):** D1 is satisfied by `2eb05050e4` `ci(install-e2e): skip schedule on forks, fetch upstream tags when missing` on `v0.22.2`. Do not cherry-pick that SHA across a reset.
 
 ### D3 — No case-colliding `agent@Agents-Mac-mini.local` contributor files
 
@@ -36,10 +50,6 @@ Upstream tracks `contributors/emails/agent@agents-Mac-mini.local` (`momomojo`). 
 
 ## Absorbed this sync (do not re-implement)
 
-### D1 — Install & Update E2E on forks — absorbed on `v0.22.2`
-
-Upstream `install-e2e.yml` on `v0.22.2` no longer has a `schedule:` trigger. The comment block now says it never runs on pull requests, pushes to main, or a schedule; remaining triggers are `workflow_dispatch` and `workflow_call` from the stable-release gate. Intent items 1–3 (skip schedule on forks; fetch parent tags when a fork has none; name the fork case in the picker error) are vacuously satisfied because there is no scheduled fork tick to fail. Dropped. If a future tag reintroduces `on.schedule` on the Install & Update E2E owner file, restore this entry.
-
 ### D2 — Dashboard Vite config is silent under native configLoader — absorbed on `v0.22.2`
 
 `web/vite.config.ts` on `v0.22.2` resolves `@` and `@hermes/shared` via `fileURLToPath(new URL(".", import.meta.url))` (`configDir`), not `__dirname`. There is no `build.rolldownOptions.checks.pluginTimings` key, so the babel-dominated build cannot print that yellow notice. Dropped.
@@ -48,8 +58,8 @@ Upstream `install-e2e.yml` on `v0.22.2` no longer has a `schedule:` trigger. The
 
 Present on this worktree at generation time. Not committed. Not a divergence until committed on the fork.
 
-- Named checkout `/home/mike/Work/BriarForge/hermes-agent` had no `.git` (macOS inode-share did not survive the omarchy move). This sync cloned `BriarForge/hermes-agent` to `/tmp/briarforge-hermes-agent`, then replaced the named checkout's contents with that tree so the cron path is a real worktree again.
-- Live install at `/home/mike/.hermes/hermes-agent` is a separate NousResearch clone. Do not reset it as if it were the fork.
+- Named checkout `/home/mike/Work/BriarForge/hermes-agent` had no `.git` (macOS inode-share did not survive the omarchy move). This sync cloned `BriarForge/hermes-agent` and replaced the named path so the cron path is a real worktree again. Remotes: `origin`/`aoife` → `git@github-aoife:BriarForge/hermes-agent.git`, `upstream` → `git@github.com:NousResearch/hermes-agent.git`.
+- Live install at `/home/mike/.hermes/hermes-agent` is a separate NousResearch clone (`origin` = NousResearch). Do not reset it as if it were the fork. `hermes update` targets that install, not this checkout.
 - Host `gh` default account is `McoreD` (interactive `gh auth status` hangs in this cron). Push identity is SSH `github-aoife` as `aoife-brennan-bf`, which is what `git-aoife` uses.
 
 ## Playbook (matches `/home/mike/Work/BriarForge/ss/AGENTS.md` § Hermes fork updates)
