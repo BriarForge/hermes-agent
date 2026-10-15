@@ -130,6 +130,12 @@ env:
 jobs:
   pick-releases:
     name: Pick release tags
+    # Forks almost never carry the upstream release tags.
+    # actions/checkout fetch-tags only sees origin, so a scheduled run on a
+    # fork would fail every tick and email the owner. Skip the clock on forks
+    # if a schedule is ever reintroduced; workflow_dispatch and workflow_call
+    # still run, and pick-releases fetches parent tags when origin has none.
+    if: github.event_name != 'schedule' || !github.event.repository.fork
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -164,9 +170,16 @@ jobs:
           INSTALL_REF: ${{ inputs.install-ref }}
           EXCLUDE_REF: ${{ inputs.exclude-ref }}
           RELEASE_MODE: ${{ inputs.release }}
+          # Parent is present on fork events; fall back so a rename or a
+          # missing parent object still reaches the public release tags.
+          UPSTREAM_URL: ${{ github.event.repository.parent.clone_url || 'https://github.com/NousResearch/hermes-agent.git' }}
         run: |
           set -euo pipefail
           [[ "$TAG_COUNT" =~ ^(10|[1-9])$ ]] || { echo "tag-count must be 1-10, got: $TAG_COUNT" >&2; exit 1; }
+          if ! git tag --list 'v*' | grep -qE '^v[0-9]+(\.[0-9]+)+$'; then
+            echo "No local release tags; fetching from ${UPSTREAM_URL}"
+            git fetch --tags --force "$UPSTREAM_URL" '+refs/tags/v*:refs/tags/v*'
+          fi
           if [ -n "$INSTALL_REF" ]; then
             [[ "$INSTALL_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo 'install-ref must be an exact release tag' >&2; exit 1; }
             [ "$INSTALL_REF" != "$EXCLUDE_REF" ] || { echo "Candidate cannot be its own baseline" >&2; exit 1; }
