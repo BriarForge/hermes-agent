@@ -27,8 +27,8 @@
 # when origin has no release tags rather than silently emitting an empty
 # matrix.
 #
-# Only vYYYY.M.D[.N] release tags are considered; the repo also carries
-# backup/* and one-off tags that are not releases.
+# Only vMAJOR.MINOR.PATCH[.N] release tags are considered (both CalVer and
+# semver schemes); the repo also carries backup/* and one-off tags.
 
 set -euo pipefail
 
@@ -76,13 +76,21 @@ mapfile -t tags < <(
   printf '%s\n' "$remote_tags" \
     | cut -f2 \
     | sed 's|^refs/tags/||' \
-    | grep -E '^v[0-9]{4}\.[0-9]+\.[0-9]+(\.[0-9]+)?$' \
+    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' \
     | sort -V
 )
+# A fork origin has no release refs; its workflow has fetched parent tags
+# locally before invoking this picker. Do not try to fetch those from origin.
+from_local=false
+if [ "${#tags[@]}" -eq 0 ]; then
+  from_local=true
+  mapfile -t tags < <(git -C "$REPO" tag -l 'v*' \
+    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V)
+fi
 
 total="${#tags[@]}"
 if [ "$total" -eq 0 ]; then
-  echo "error: no vYYYY.M.D[.N] release tags found on origin" >&2
+  echo "error: no release tags found (fork without parent tags, or shallow clone)" >&2
   exit 1
 fi
 
@@ -116,7 +124,9 @@ refs=()
 for tag in "${picked[@]}"; do
   refs+=("+refs/tags/$tag:refs/tags/$tag")
 done
-git -C "$REPO" fetch --quiet --no-tags origin "${refs[@]}"
+if [ "$from_local" = false ]; then
+  git -C "$REPO" fetch --quiet --no-tags origin "${refs[@]}"
+fi
 
 printf '['
 for i in "${!picked[@]}"; do

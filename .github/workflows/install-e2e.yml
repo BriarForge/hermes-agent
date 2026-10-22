@@ -148,6 +148,17 @@ jobs:
             scripts/sandbox/pick-release-tags.sh
             scripts/releases/pick_tags.py
           sparse-checkout-cone-mode: false
+      # Fork checkouts do not inherit upstream release tags. Keep dispatch and
+      # workflow_call usable there without pulling unrelated upstream branches.
+      - name: Fetch parent release tags on forks
+        if: github.event.repository.fork
+        env:
+          PARENT_URL: ${{ github.event.repository.parent.clone_url || 'https://github.com/NousResearch/hermes-agent.git' }}
+        run: |
+          set -euo pipefail
+          if ! git tag -l 'v*' | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+            git fetch --no-tags "$PARENT_URL" '+refs/tags/v*:refs/tags/v*'
+          fi
       - id: pick
         env:
           # Inputs never touch shell syntax directly: TAG_COUNT arrives via
