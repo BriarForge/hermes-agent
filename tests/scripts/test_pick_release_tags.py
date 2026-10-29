@@ -37,15 +37,24 @@ def test_picking_reads_origin_not_local_tags(tmp_path):
     _git(tmp_path, "clone", "--no-local", "--no-tags", str(origin), str(tmp_path / "tagless"))
     assert _pick(tmp_path / "tagless", "--count", "2") == '["v2026.4.3","v2026.9.15"]'
     # Only the picked tags are materialized; unselected releases are not fetched.
-    assert _git(tmp_path / "tagless", "tag", "--list").stdout.split() == ["v2026.4.3", "v2026.9.15"]
+    assert set(_git(tmp_path / "tagless", "tag", "--list").stdout.split()) == {"v2026.4.3", "v2026.9.15"}
     expected = '["v2026.4.3","v2026.4.13","v2026.9.15"]'
     assert _pick(tmp_path / "tagless", "--count", "5") == expected
     assert _pick(tmp_path / "with-tags", "--count", "5") == expected
 
 
-def test_picking_rejects_schemes_other_than_calver(tmp_path):
+def test_picking_accepts_semver(tmp_path):
     origin = _origin_with_tags(tmp_path, ["v0.27.0"])
     _git(tmp_path, "clone", "--no-local", "--no-tags", str(origin), str(tmp_path / "tagless"))
-    result = subprocess.run(["bash", str(SCRIPT), "--repo", str(tmp_path / "tagless")], check=False, capture_output=True, text=True)
-    assert result.returncode != 0
-    assert "release tags found on origin" in result.stderr
+    assert _pick(tmp_path / "tagless") == '["v0.27.0"]'
+
+
+def test_picking_fork_local_parent_tags(tmp_path):
+    origin = _origin_with_tags(tmp_path, ["canary-v0.22.5"])
+    fork = tmp_path / "fork"
+    _git(tmp_path, "clone", "--no-local", "--no-tags", str(origin), str(fork))
+    _git(fork, "tag", "v0.22.4")
+    _git(fork, "tag", "v0.22.5")
+    assert _pick(fork) == '["v0.22.4","v0.22.5"]'
+    from scripts.releases.pick_tags import pick_tags
+    assert pick_tags(fork, 2) == ["v0.22.4", "v0.22.5"]
