@@ -19,14 +19,21 @@ def pick_tags(repo: Path, count: int, exclude: str = "") -> list[str]:
     raw = _git(repo, "ls-remote", "--refs", "--tags", "origin", "v*")
     tags = [line.split("\t")[1].removeprefix("refs/tags/") for line in raw.splitlines()]
     tags = [tag for tag in tags if re.fullmatch(r"v\d+\.\d+\.\d+(?:\.\d+)?", tag) and tag != exclude]
+    from_local = not tags
+    if from_local:
+        # Fork origins may have no release refs; the workflow fetched parent tags.
+        raw = _git(repo, "tag", "--list", "v*")
+        tags = [tag for tag in raw.splitlines()
+                if re.fullmatch(r"v\d+\.\d+\.\d+(?:\.\d+)?", tag) and tag != exclude]
     if not tags:
-        raise ValueError("No released baseline tags remain")
+        raise ValueError("No released baseline tags remain (fork without parent tags, or shallow clone)")
     # Creation dates live inside the tag objects, which ls-remote cannot read:
     # date sort keys resolve against the local object store and fail loudly
     # when an object is absent. Fetch exactly the filtered release tags --
     # never the canary and backup refs a full --tags fetch would pull -- so a
     # checkout with no tags at all still gets the same chronological order.
-    _git(repo, "fetch", "--quiet", "--no-tags", "origin", *(f"+refs/tags/{tag}:refs/tags/{tag}" for tag in tags))
+    if not from_local:
+        _git(repo, "fetch", "--quiet", "--no-tags", "origin", *(f"+refs/tags/{tag}:refs/tags/{tag}" for tag in tags))
     # Order the just-fetched refs by creation date locally: no second remote
     # query to fail or to diverge from what the fetch stored above.
     raw = _git(repo, "for-each-ref", "--sort=creatordate", "--format=%(refname:short)",
